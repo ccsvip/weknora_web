@@ -6,11 +6,19 @@ import { listConversations, listKnowledgeBases } from "../../services/api";
 export const Route = createFileRoute("/_authed/")({
   ssr: false,
   loader: async () => {
-    const knowledge = await listKnowledgeBases();
-    const conversations = await listConversations();
+    const [knowledgeResult, conversationsResult] = await Promise.allSettled([
+      listKnowledgeBases(),
+      listConversations(),
+    ]);
+    const knowledge =
+      knowledgeResult.status === "fulfilled"
+        ? knowledgeResult.value
+        : { data: [], reason: "upstream_unreachable" };
+
     return {
       knowledge,
-      conversations: conversations.data ?? [],
+      conversations:
+        conversationsResult.status === "fulfilled" ? conversationsResult.value.data ?? [] : [],
     };
   },
   component: DeskRoute,

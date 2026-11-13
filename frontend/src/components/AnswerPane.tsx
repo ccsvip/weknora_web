@@ -22,8 +22,8 @@ export function AnswerPane({ status, body }: AnswerPaneProps) {
       : status === "streaming"
         ? "border-l-[3px] border-accent pl-3"
         : status === "failed"
-          ? "rounded-2xl bg-[#f8e8e4] p-4 text-danger"
-          : "rounded-2xl border border-line bg-[#fffdf8] p-4";
+        ? "rounded-2xl bg-[#fef2f2] p-4 text-danger"
+        : "text-ink";
 
   return (
     <article className={frame} data-state={status}>
@@ -37,7 +37,7 @@ export function AnswerPane({ status, body }: AnswerPaneProps) {
       ) : null}
       {body ? (
         <div
-          className={`answer-md font-serif text-[1.15rem] leading-relaxed ${status === "streaming" ? "after:ml-0.5 after:inline-block after:h-[1.05em] after:w-1.5 after:animate-pulse after:bg-current after:align-text-bottom after:content-['']" : ""}`}
+          className={`answer-md text-base leading-7 text-ink ${status === "streaming" ? "after:ml-0.5 after:inline-block after:h-[1.05em] after:w-1.5 after:animate-pulse after:bg-current after:align-text-bottom after:content-['']" : ""}`}
         >
           <Markdown remarkPlugins={[remarkGfm]}>{body}</Markdown>
         </div>
