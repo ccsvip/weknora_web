@@ -18,10 +18,10 @@ export function ConversationList({
   const groups = groupConversations(conversations);
 
   return (
-    <aside className="flex min-h-0 flex-col rounded-2xl border border-line bg-[#fffdf8]/80 p-4" aria-label="历史对话">
+    <aside className="flex min-h-0 flex-col border-b border-line bg-white p-3 md:bg-[#f9f9f9] desk:border-r desk:border-b-0" aria-label="历史对话">
       <button
         type="button"
-        className="mb-3 rounded-full border border-accent bg-accent px-3 py-2 text-sm text-paper"
+        className="mb-3 flex items-center justify-center gap-2 rounded-xl border border-[#d9d9d9] bg-transparent px-3 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-black/5"
         onClick={onCreate}
       >
         新对话

@@ -39,8 +39,8 @@ export function Composer({ value, disabled, onChange, onSubmit, accessory }: Com
   }
 
   return (
-    <form className="mt-auto grid gap-2" onSubmit={submit}>
-      <div className="rounded-2xl border border-line bg-[#fffdf8] p-3">
+    <form className="mx-auto mt-auto grid w-full max-w-3xl gap-2 pt-4" onSubmit={submit}>
+      <div className="rounded-[1.75rem] border border-[#d9d9d9] bg-white px-4 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.06)] focus-within:border-[#b8b8b8]">
         <textarea
           ref={ref}
           rows={1}

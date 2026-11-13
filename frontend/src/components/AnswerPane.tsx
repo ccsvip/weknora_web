@@ -22,8 +22,8 @@ export function AnswerPane({ status, body }: AnswerPaneProps) {
       : status === "streaming"
         ? "border-l-[3px] border-accent pl-3"
         : status === "failed"
-          ? "rounded-2xl bg-[#f8e8e4] p-4 text-danger"
-          : "rounded-2xl border border-line bg-[#fffdf8] p-4";
+        ? "rounded-2xl bg-[#fef2f2] p-4 text-danger"
+        : "text-ink";
 
   return (
     <article className={frame} data-state={status}>

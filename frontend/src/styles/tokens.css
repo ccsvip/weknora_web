@@ -1,10 +1,10 @@
 :root {
-  --paper: #f6f1e7;
-  --ink: #1c1915;
-  --muted: #5c564c;
-  --line: #e4dccf;
-  --accent: #0f6e56;
-  --failure: #9f2d2d;
-  --serif: "Source Serif 4", "Palatino Linotype", Palatino, serif;
-  --sans: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  --paper: #ffffff;
+  --ink: #212121;
+  --muted: #676767;
+  --line: #e5e5e5;
+  --accent: #10a37f;
+  --failure: #b42318;
+  --serif: "Source Serif 4", "Noto Serif SC", serif;
+  --sans: "Noto Sans SC", "Microsoft YaHei", Arial, ui-sans-serif, system-ui, sans-serif;
 }

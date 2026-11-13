@@ -27,16 +27,16 @@ interface ConversationPageProps {
 
 export function KnowledgeNotice({ reason }: { reason: string }) {
   if (reason === "no_knowledge_bases") {
-    return <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">没有可访问的知识库</p>;
+    return <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">没有可访问的知识库</p>;
   }
   if (reason === "missing_capability") {
-    return <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">当前密钥缺少所需能力</p>;
+    return <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">当前密钥缺少所需能力</p>;
   }
   if (reason === "upstream_forbidden") {
-    return <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">上游拒绝列出知识库</p>;
+    return <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">上游拒绝列出知识库</p>;
   }
   if (reason === "upstream_unreachable") {
-    return <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">暂时连不上知识库</p>;
+    return <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">暂时连不上知识库</p>;
   }
   return null;
 }
@@ -219,7 +219,7 @@ export function ConversationPage({
     "知识库";
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 desk:grid-cols-[16rem_minmax(0,1fr)_18rem] desk:items-stretch">
+    <div className="grid min-h-0 flex-1 grid-cols-1 desk:grid-cols-[15rem_minmax(0,1fr)_17rem] desk:items-stretch">
       <ConversationList
         conversations={conversations}
         selectedId={selectedId}
@@ -243,14 +243,14 @@ export function ConversationPage({
         }}
       />
       <section
-        className="flex min-h-[28rem] min-w-0 flex-col rounded-2xl border border-line bg-[#fffdf8]/80 p-4 desk:min-h-[calc(100vh-6.5rem)]"
+        className="flex min-h-[28rem] min-w-0 flex-col bg-white px-4 pb-4 pt-3 desk:min-h-[calc(100vh-3.5rem)] desk:px-8"
         aria-label="当前对话"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-muted">对话</h2>
           {knowledgeBases.length > 0 && !detail ? (
             <select
-              className="rounded-full border-0 bg-[#efe7d6] px-3 py-1 text-sm text-ink"
+              className="rounded-full border-0 bg-[#f3f3f3] px-3 py-1 text-sm text-ink"
               aria-label="知识库"
               value={knowledgeBaseId}
               onChange={(event) => setKnowledgeBaseId(event.target.value)}
@@ -262,13 +262,20 @@ export function ConversationPage({
               ))}
             </select>
           ) : (
-            <span className="rounded-full bg-[#efe7d6] px-3 py-1 text-sm">{knowledgeName}</span>
+            <span className="rounded-full bg-[#f3f3f3] px-3 py-1 text-sm">{knowledgeName}</span>
           )}
         </div>
-        <div className="min-h-0 flex-1 space-y-4 overflow-auto" ref={threadRef} role="log">
+        <div className="min-h-0 flex-1 space-y-7 overflow-auto py-6" ref={threadRef} role="log" aria-live="polite">
+          {messages.length === 0 && !pendingQuestion && phase === "idle" ? (
+            <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
+              <div className="mb-5 grid h-12 w-12 place-items-center rounded-full bg-[#f4f4f4] text-xl font-semibold">W</div>
+              <h2 className="m-0 text-2xl font-semibold tracking-tight">今天有什么想了解的？</h2>
+              <p className="mt-2 max-w-md text-sm leading-6 text-muted">向你的知识库提问，WeKnora 会结合相关资料为你整理答案。</p>
+            </div>
+          ) : null}
           <KnowledgeNotice reason={reason} />
           {detail && detail.continuable === false ? (
-            <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">这段对话不能继续提问</p>
+            <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">这段对话不能继续提问</p>
           ) : null}
           {notice ? (
             <p className="rounded-xl bg-[#f8e8e4] px-3 py-2 text-sm text-danger">{notice}</p>
@@ -276,7 +283,7 @@ export function ConversationPage({
           {messages.map((message) =>
             message.role === "user" ? (
               <article
-                className="ml-auto max-w-[80%] rounded-2xl border border-line bg-paper px-4 py-3"
+                className="ml-auto max-w-[82%] rounded-3xl bg-[#f4f4f4] px-5 py-3 leading-7"
                 key={message.id}
               >
                 {message.body}

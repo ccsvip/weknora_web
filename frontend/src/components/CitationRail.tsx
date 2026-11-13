@@ -7,7 +7,7 @@ interface CitationRailProps {
 
 export function CitationRail({ citations, settled }: CitationRailProps) {
   return (
-    <aside className="flex min-h-0 flex-col rounded-2xl border border-line bg-[#fffdf8]/80 p-4" aria-label="引用">
+    <aside className="hidden min-h-0 flex-col border-l border-line bg-white p-4 desk:flex" aria-label="引用">
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">引用</h2>
       {citations.length > 0 ? (
         citations.map((citation, index) => (
