@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGPORT: ${POSTGRES_PORT}
+    volumes:
+      - weknora_web_db:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -p \"$$POSTGRES_PORT\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  api:
+    build:
+      context: ./backend
+    environment:
+      API_PORT: ${API_PORT}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+      WEKNORA_BASE_URL: ${WEKNORA_BASE_URL}
+      WEKNORA_API_KEY: ${WEKNORA_API_KEY}
+      ACCESS_PASSWORD: ${ACCESS_PASSWORD}
+      ACCESS_SESSION_SECRET: ${ACCESS_SESSION_SECRET}
+      ACCESS_COOKIE_SECURE: ${ACCESS_COOKIE_SECURE}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['API_PORT'] + '/api/v1/health')\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  web:
+    build:
+      context: ./frontend
+    environment:
+      WEB_PORT: ${WEB_PORT}
+      API_PORT: ${API_PORT}
+    ports:
+      - "${WEB_PORT}:${WEB_PORT}"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  weknora_web_db:

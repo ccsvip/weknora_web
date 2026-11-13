@@ -1,0 +1,457 @@
+openapi: 3.0.3
+info:
+  title: WeKnora Web API
+  version: 0.1.0
+  description: |
+    本产品对浏览器暴露的资源式接口。浏览器不得调用 WeKnora。
+    除存活检查和创建访问会话外，请求都必须带上访问会话 cookie。
+    没有单独的更新接口。对话标题在创建第一条消息时写入。
+    助手消息的状态在创建该消息的流式响应中变为完成或中断。
+    活动记录写入后不再修改。
+servers:
+  - url: /api/v1
+tags:
+  - name: Access
+  - name: KnowledgeBases
+  - name: Conversations
+  - name: Messages
+  - name: ActivityRecords
+  - name: Health
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: 存活检查
+      security: []
+      responses:
+        "200":
+          description: 进程已通过配置检查并正在服务
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+  /access-sessions:
+    post:
+      tags: [Access]
+      operationId: createAccessSession
+      summary: 用访问口令建立浏览器会话
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+      responses:
+        "200":
+          description: 口令正确。响应设置会话 cookie `weknora_web_access`，不返回口令
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyData"
+        "401":
+          description: 口令错误
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /access-sessions/current:
+    delete:
+      tags: [Access]
+      operationId: deleteCurrentAccessSession
+      summary: 主动退出
+      responses:
+        "204":
+          description: 清除访问会话 cookie
+  /knowledge-bases:
+    get:
+      tags: [KnowledgeBases]
+      operationId: listKnowledgeBases
+      summary: 列出当前密钥允许阅读的知识库
+      responses:
+        "200":
+          description: 允许阅读的知识库。原因字段区分空列表的来由
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, reason]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/KnowledgeBase"
+                  reason:
+                    type: string
+                    enum:
+                      - none
+                      - no_knowledge_bases
+                      - missing_capability
+                      - upstream_forbidden
+                      - upstream_unreachable
+        "401":
+          $ref: "#/components/responses/AccessRequired"
+  /conversations:
+    get:
+      tags: [Conversations]
+      operationId: listConversations
+      summary: 按更新时间倒序列出本部署的对话
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+      responses:
+        "200":
+          description: 对话列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Conversation"
+        "401":
+          $ref: "#/components/responses/AccessRequired"
+    post:
+      tags: [Conversations]
+      operationId: createConversation
+      summary: 针对一个知识库创建对话和上游会话
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [knowledge_base_id]
+              properties:
+                knowledge_base_id:
+                  type: string
+                  minLength: 1
+      responses:
+        "201":
+          description: 本地对话和上游会话都已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Conversation"
+        "401":
+          $ref: "#/components/responses/AccessRequired"
+        "403":
+          description: 知识库不在允许范围内，或上游拒绝
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "502":
+          description: 上游会话未创建成功，本地不留下对话
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /conversations/{conversation_id}:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    get:
+      tags: [Conversations]
+      operationId: getConversation
+      summary: 读取一段对话及其消息和引用
+      responses:
+        "200":
+          description: 对话仍在时返回已保存内容，即使已经不能继续提问
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - $ref: "#/components/schemas/Conversation"
+                      - type: object
+                        required: [messages]
+                        properties:
+                          messages:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/AccessRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Conversations]
+      operationId: deleteConversation
+      summary: 同时删除本地对话和对应的 WeKnora 会话
+      responses:
+        "204":
+          description: 两边都已删除，并写下一条约不含正文的删除事件
+        "401":
+          $ref: "#/components/responses/AccessRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          description: 删除失败。本地对话仍然存在，没有删除事件
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /conversations/{conversation_id}/messages:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    post:
+      tags: [Messages]
+      operationId: createMessage
+      summary: 提交一个新问题并流式返回助手消息
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 8000
+      responses:
+        "200":
+          description: |
+            `text/event-stream`。只包含这次新问题产生的助手消息。
+            事件按出现顺序：
+            - `message`：`{"message_id","status","delta"}`，`delta` 是新增的回答片段
+            - `references`：`{"message_id","citations":[{"title","excerpt"}]}`，可以不出现
+            - `done`：`{"message_id","status"}`，`status` 为 `complete` 或 `interrupted`
+            - `error`：`{"code","message"}`，随后仍会有 `done`，且状态为 `interrupted`
+            流开始前，用户消息已经按 `complete` 保存，助手消息处于 `streaming`。
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/AccessRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: 对话正在回答，或已经不能继续提问
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: 问题为空白，或超过 8000 个字符
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /activity-records:
+    get:
+      tags: [ActivityRecords]
+      operationId: listActivityRecords
+      summary: 按时间倒序查看活动记录
+      parameters:
+        - in: query
+          name: conversation_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+      responses:
+        "200":
+          description: 活动记录。删除事件的摘要不含消息正文
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ActivityRecord"
+        "401":
+          $ref: "#/components/responses/AccessRequired"
+components:
+  parameters:
+    ConversationId:
+      in: path
+      name: conversation_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    AccessRequired:
+      description: 没有有效的访问会话
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: 对话不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    EmptyData:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - access_required
+                - access_denied
+                - validation_error
+                - conversation_not_found
+                - conversation_busy
+                - conversation_not_continuable
+                - upstream_forbidden
+                - upstream_conflict
+                - upstream_failed
+                - upstream_unavailable
+                - delete_failed
+            message:
+              type: string
+    KnowledgeBase:
+      type: object
+      required: [id, name, accessible]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        accessible:
+          type: boolean
+    Conversation:
+      type: object
+      required:
+        - id
+        - knowledge_base_id
+        - knowledge_base_name
+        - title
+        - continuable
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        knowledge_base_id:
+          type: string
+        knowledge_base_name:
+          type: string
+        title:
+          type: string
+        continuable:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Citation:
+      type: object
+      required: [title, excerpt, position]
+      properties:
+        title:
+          type: string
+        excerpt:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+    Message:
+      type: object
+      required: [id, role, body, status, created_at, citations]
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant]
+        body:
+          type: string
+        status:
+          type: string
+          enum: [complete, streaming, interrupted]
+        created_at:
+          type: string
+          format: date-time
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+    ActivityRecord:
+      type: object
+      required: [id, conversation_id, conversation_title, kind, summary, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        conversation_title:
+          type: string
+        kind:
+          type: string
+          enum:
+            - conversation_created
+            - message_completed
+            - message_failed
+            - conversation_deleted
+        summary:
+          type: string
+        created_at:
+          type: string
+          format: date-time
