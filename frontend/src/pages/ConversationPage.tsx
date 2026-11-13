@@ -18,40 +18,50 @@ import {
 } from "../services/api";
 
 interface ConversationPageProps {
-  onOpenActivity?: () => void;
-  onLogout?: () => void;
+  initialKnowledge?: { data: KnowledgeBase[]; reason?: string };
+  initialConversations?: Conversation[];
+  initialSelected?: Conversation | null;
+  selectedId?: string | null;
+  onSelectConversation?: (id: string | null) => void;
 }
 
 export function KnowledgeNotice({ reason }: { reason: string }) {
   if (reason === "no_knowledge_bases") {
-    return <p className="chat-banner">没有可访问的知识库</p>;
+    return <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">没有可访问的知识库</p>;
   }
   if (reason === "missing_capability") {
-    return <p className="chat-banner">当前密钥缺少所需能力</p>;
+    return <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">当前密钥缺少所需能力</p>;
   }
   if (reason === "upstream_forbidden") {
-    return <p className="chat-banner">上游拒绝列出知识库</p>;
+    return <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">上游拒绝列出知识库</p>;
   }
   if (reason === "upstream_unreachable") {
-    return <p className="chat-banner">暂时连不上知识库</p>;
+    return <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">暂时连不上知识库</p>;
   }
   return null;
 }
 
-export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageProps = {}) {
-  const [reason, setReason] = useState("none");
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
-  const [knowledgeBaseId, setKnowledgeBaseId] = useState("");
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<Conversation | null>(null);
+export function ConversationPage({
+  initialKnowledge,
+  initialConversations,
+  initialSelected,
+  selectedId: selectedIdFromSearch,
+  onSelectConversation,
+}: ConversationPageProps = {}) {
+  const [reason, setReason] = useState(initialKnowledge?.reason ?? "none");
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>(initialKnowledge?.data ?? []);
+  const [knowledgeBaseId, setKnowledgeBaseId] = useState(initialKnowledge?.data?.[0]?.id ?? "");
+  const [conversations, setConversations] = useState<Conversation[]>(initialConversations ?? []);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    selectedIdFromSearch ?? initialSelected?.id ?? null,
+  );
+  const [detail, setDetail] = useState<Conversation | null>(initialSelected ?? null);
   const [draft, setDraft] = useState("");
   const [phase, setPhase] = useState<AnswerStatus | "idle">("idle");
   const [liveBody, setLiveBody] = useState("");
   const [liveCitations, setLiveCitations] = useState<Citation[]>([]);
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [notice, setNotice] = useState("");
-  const [navOpen, setNavOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
 
   async function refreshList() {
@@ -60,6 +70,9 @@ export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageP
   }
 
   useEffect(() => {
+    if (initialKnowledge) {
+      return;
+    }
     void listKnowledgeBases()
       .then((payload) => {
         const rows = payload.data ?? [];
@@ -70,18 +83,28 @@ export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageP
       .catch(() => {
         setReason("upstream_unreachable");
       });
+  }, [initialKnowledge]);
+
+  useEffect(() => {
+    if (initialConversations) {
+      return;
+    }
     void refreshList().catch(() => {
       setNotice("暂时连不上对话列表");
     });
-  }, []);
+  }, [initialConversations]);
 
   useEffect(() => {
     if (!selectedId) {
       setDetail(null);
       return;
     }
+    if (initialSelected && initialSelected.id === selectedId) {
+      setDetail(initialSelected);
+      return;
+    }
     void getConversation(selectedId).then((payload) => setDetail(payload.data ?? null));
-  }, [selectedId]);
+  }, [selectedId, initialSelected]);
 
   const askingDisabled =
     reason === "no_knowledge_bases" ||
@@ -93,12 +116,11 @@ export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageP
     (detail !== null && detail.continuable === false);
 
   const settled = phase === "complete" || phase === "failed" || lastAssistantSettled(detail, phase);
-  const railCitations = phase === "waiting" || phase === "streaming" || phase === "complete" || phase === "failed"
-    ? liveCitations
-    : lastCitations(detail);
+  const railCitations =
+    phase === "waiting" || phase === "streaming" || phase === "complete" || phase === "failed"
+      ? liveCitations
+      : lastCitations(detail);
   const messages = detail?.messages ?? [];
-  const hasTranscript = messages.length > 0 || pendingQuestion !== "" || phase === "waiting" || phase === "streaming" || phase === "failed";
-  const showEmptyCitations = settled && phase !== "waiting" && phase !== "streaming" && railCitations.length === 0 && (messages.some((message) => message.role === "assistant") || phase === "failed" || phase === "complete");
 
   useEffect(() => {
     const element = threadRef.current;
@@ -113,6 +135,12 @@ export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageP
     setLiveCitations([]);
     setPendingQuestion("");
     setNotice("");
+  }
+
+  function chooseConversation(id: string | null) {
+    setSelectedId(id);
+    resetLive();
+    onSelectConversation?.(id);
   }
 
   async function submit() {
@@ -139,23 +167,39 @@ export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageP
         }
         conversationId = created.data.id;
         setSelectedId(conversationId);
+        onSelectConversation?.(conversationId);
       }
+      let outcome: AnswerStatus = "waiting";
+      let streamedCitations: Citation[] = [];
       await streamMessage(conversationId, content, (event, data) => {
         if (event === "message") {
+          outcome = "streaming";
           setPhase("streaming");
           setLiveBody((current) => current + String(data.delta ?? ""));
         } else if (event === "references") {
-          const citations = Array.isArray(data.citations) ? (data.citations as Citation[]) : [];
-          setLiveCitations(citations);
+          streamedCitations = Array.isArray(data.citations) ? (data.citations as Citation[]) : [];
+          setLiveCitations(streamedCitations);
         } else if (event === "error") {
+          outcome = "failed";
           setPhase("failed");
           setNotice(String(data.message ?? "回答失败"));
         } else if (event === "done") {
-          setPhase(data.status === "complete" ? "complete" : "failed");
+          outcome = data.status === "complete" ? "complete" : "failed";
+          setPhase(outcome);
         }
       });
-      const refreshed = await getConversation(conversationId);
-      setDetail(refreshed.data ?? null);
+      let refreshed = await getConversation(conversationId);
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        const assistant = [...(refreshed.data?.messages ?? [])]
+          .reverse()
+          .find((message) => message.role === "assistant");
+        if (!assistant || assistant.status !== "streaming") {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        refreshed = await getConversation(conversationId);
+      }
+      setDetail(applyStreamOutcome(refreshed.data ?? null, outcome, streamedCitations));
       setPendingQuestion("");
       setPhase("idle");
       setLiveBody("");
@@ -169,63 +213,27 @@ export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageP
     }
   }
 
-  const knowledgeName = detail?.knowledge_base_name || knowledgeBases.find((item) => item.id === knowledgeBaseId)?.name || "知识库";
-  const thread = (
-    <>
-      <KnowledgeNotice reason={reason} />
-      {detail && detail.continuable === false ? <p className="chat-banner">这段对话不能继续提问</p> : null}
-      {notice ? <p className="chat-banner is-fail">{notice}</p> : null}
-      {messages.map((message) =>
-        message.role === "user" ? (
-          <article className="chat-user" key={message.id}>
-            <div>{message.body}</div>
-          </article>
-        ) : (
-          <AnswerPane
-            key={message.id}
-            status={message.status === "interrupted" ? "failed" : message.status === "streaming" ? "streaming" : "complete"}
-            body={message.body}
-            citations={message.citations}
-          />
-        ),
-      )}
-      {pendingQuestion ? (
-        <article className="chat-user">
-          <div>{pendingQuestion}</div>
-        </article>
-      ) : null}
-      {phase === "waiting" || phase === "streaming" || phase === "failed" ? (
-        <AnswerPane status={phase} body={liveBody} citations={liveCitations} />
-      ) : null}
-      {showEmptyCitations ? <CitationRail citations={[]} settled /> : null}
-    </>
-  );
+  const knowledgeName =
+    detail?.knowledge_base_name ||
+    knowledgeBases.find((item) => item.id === knowledgeBaseId)?.name ||
+    "知识库";
 
   return (
-    <div className={navOpen ? "chat is-nav-open" : "chat"}>
-      {navOpen ? (
-        <button type="button" className="chat-backdrop" aria-label="关闭历史" onClick={() => setNavOpen(false)} />
-      ) : null}
+    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 desk:grid-cols-[16rem_minmax(0,1fr)_18rem] desk:items-stretch">
       <ConversationList
         conversations={conversations}
         selectedId={selectedId}
-        onSelect={(id) => {
-          setSelectedId(id);
-          resetLive();
-          setNavOpen(false);
-        }}
+        onSelect={(id) => chooseConversation(id)}
         onCreate={() => {
-          setSelectedId(null);
           setDetail(null);
-          resetLive();
-          setNavOpen(false);
+          chooseConversation(null);
         }}
         onDelete={(id) => {
           void deleteConversation(id)
             .then(() => {
               if (selectedId === id) {
-                setSelectedId(null);
                 setDetail(null);
+                chooseConversation(null);
               }
               return refreshList();
             })
@@ -233,58 +241,109 @@ export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageP
               setNotice(caught instanceof ApiError ? caught.message : "删除没有完成，对话仍保留");
             });
         }}
-        onOpenActivity={onOpenActivity}
-        onLogout={onLogout}
       />
-      <main className={hasTranscript ? "chat-main" : "chat-main is-empty"}>
-        <button type="button" className="chat-menu" aria-label="打开历史" onClick={() => setNavOpen(true)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </button>
-        {hasTranscript ? (
-          <>
-            <div className="chat-scroll" ref={threadRef} role="log" aria-label="当前对话">
-              {thread}
-            </div>
-            <div className="chat-dock">
-              <Composer
-                value={draft}
-                disabled={askingDisabled}
-                onChange={setDraft}
-                onSubmit={() => void submit()}
-                accessory={<span className="chat-kb">{knowledgeName}</span>}
+      <section
+        className="flex min-h-[28rem] min-w-0 flex-col rounded-2xl border border-line bg-[#fffdf8]/80 p-4 desk:min-h-[calc(100vh-6.5rem)]"
+        aria-label="当前对话"
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-muted">对话</h2>
+          {knowledgeBases.length > 0 && !detail ? (
+            <select
+              className="rounded-full border-0 bg-[#efe7d6] px-3 py-1 text-sm text-ink"
+              aria-label="知识库"
+              value={knowledgeBaseId}
+              onChange={(event) => setKnowledgeBaseId(event.target.value)}
+            >
+              {knowledgeBases.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="rounded-full bg-[#efe7d6] px-3 py-1 text-sm">{knowledgeName}</span>
+          )}
+        </div>
+        <div className="min-h-0 flex-1 space-y-4 overflow-auto" ref={threadRef} role="log">
+          <KnowledgeNotice reason={reason} />
+          {detail && detail.continuable === false ? (
+            <p className="rounded-xl bg-[#efe7d6] px-3 py-2 text-sm">这段对话不能继续提问</p>
+          ) : null}
+          {notice ? (
+            <p className="rounded-xl bg-[#f8e8e4] px-3 py-2 text-sm text-danger">{notice}</p>
+          ) : null}
+          {messages.map((message) =>
+            message.role === "user" ? (
+              <article
+                className="ml-auto max-w-[80%] rounded-2xl border border-line bg-paper px-4 py-3"
+                key={message.id}
+              >
+                {message.body}
+              </article>
+            ) : (
+              <AnswerPane
+                key={message.id}
+                status={
+                  message.status === "interrupted"
+                    ? "failed"
+                    : message.status === "streaming"
+                      ? "streaming"
+                      : "complete"
+                }
+                body={message.body}
               />
-            </div>
-          </>
-        ) : (
-          <div className="chat-hero">
-            <h1>有什么可以帮忙的？</h1>
-            {thread}
-            <Composer
-              value={draft}
-              disabled={askingDisabled}
-              onChange={setDraft}
-              onSubmit={() => void submit()}
-              accessory={
-                knowledgeBases.length > 0 ? (
-                  <select className="chat-kb" aria-label="知识库" value={knowledgeBaseId} onChange={(event) => setKnowledgeBaseId(event.target.value)}>
-                    {knowledgeBases.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span className="chat-kb">{knowledgeName}</span>
-                )
-              }
-            />
-          </div>
-        )}
-      </main>
+            ),
+          )}
+          {pendingQuestion ? (
+            <article className="ml-auto max-w-[80%] rounded-2xl border border-line bg-paper px-4 py-3">
+              {pendingQuestion}
+            </article>
+          ) : null}
+          {phase === "waiting" || phase === "streaming" || phase === "complete" || phase === "failed" ? (
+            <AnswerPane status={phase} body={liveBody} />
+          ) : null}
+        </div>
+        <Composer
+          value={draft}
+          disabled={askingDisabled}
+          onChange={setDraft}
+          onSubmit={() => void submit()}
+          accessory={<span className="text-sm text-muted">{knowledgeName}</span>}
+        />
+      </section>
+      <div className="desk:min-h-[calc(100vh-6.5rem)]">
+        <CitationRail citations={railCitations} settled={settled && phase !== "waiting" && phase !== "streaming"} />
+      </div>
     </div>
   );
+}
+
+function applyStreamOutcome(
+  detail: Conversation | null,
+  phase: AnswerStatus | "idle",
+  streamedCitations: Citation[],
+): Conversation | null {
+  if (!detail?.messages || (phase !== "complete" && phase !== "failed")) {
+    return detail;
+  }
+  const mapped = detail.messages.map((message, index, rows) => {
+    const isLastAssistant =
+      message.role === "assistant" && rows.slice(index + 1).every((item) => item.role !== "assistant");
+    if (!isLastAssistant) {
+      return message;
+    }
+    const status =
+      message.status === "streaming"
+        ? phase === "failed"
+          ? "interrupted"
+          : "complete"
+        : message.status;
+    const citations =
+      message.citations && message.citations.length > 0 ? message.citations : streamedCitations;
+    return { ...message, status, citations };
+  });
+  return { ...detail, messages: mapped };
 }
 
 function lastAssistantSettled(detail: Conversation | null, phase: AnswerStatus | "idle") {

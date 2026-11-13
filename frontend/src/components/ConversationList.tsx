@@ -6,8 +6,6 @@ interface ConversationListProps {
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onCreate: () => void;
-  onOpenActivity?: () => void;
-  onLogout?: () => void;
 }
 
 export function ConversationList({
@@ -16,33 +14,39 @@ export function ConversationList({
   onSelect,
   onDelete,
   onCreate,
-  onOpenActivity,
-  onLogout,
 }: ConversationListProps) {
   const groups = groupConversations(conversations);
 
   return (
-    <aside className="chat-side" aria-label="历史对话">
-      <button type="button" className="chat-new" onClick={onCreate}>
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-          <path d="M13.2 7.2l3.6 3.6" fill="none" stroke="currentColor" strokeWidth="1.6" />
-        </svg>
+    <aside className="flex min-h-0 flex-col rounded-2xl border border-line bg-[#fffdf8]/80 p-4" aria-label="历史对话">
+      <button
+        type="button"
+        className="mb-3 rounded-full border border-accent bg-accent px-3 py-2 text-sm text-paper"
+        onClick={onCreate}
+      >
         新对话
       </button>
-      <div className="chat-history">
-        {groups.length === 0 ? <p className="chat-history-empty">还没有对话</p> : null}
+      <div className="min-h-0 flex-1 overflow-auto">
+        {groups.length === 0 ? <p className="text-sm text-muted">还没有对话</p> : null}
         {groups.map((group) => (
           <section key={group.label}>
-            <h2>{group.label}</h2>
+            <h2 className="mb-1 mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted">{group.label}</h2>
             {group.items.map((conversation) => (
-              <div key={conversation.id} className={conversation.id === selectedId ? "chat-row is-active" : "chat-row"}>
-                <button type="button" className="chat-open" onClick={() => onSelect(conversation.id)}>
-                  <span>{conversation.title}</span>
+              <div
+                key={conversation.id}
+                className={`mb-1 flex items-center rounded-xl ${conversation.id === selectedId ? "border border-accent" : ""}`}
+              >
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 rounded-xl bg-transparent px-2 py-2 text-left text-ink"
+                  onClick={() => onSelect(conversation.id)}
+                >
+                  <span className="block truncate">{conversation.title}</span>
+                  <small className="text-muted">{formatTime(conversation.updated_at)}</small>
                 </button>
                 <button
                   type="button"
-                  className="chat-del"
+                  className="mr-1 grid h-7 w-7 place-items-center rounded-lg text-muted"
                   aria-label={`删除${conversation.title}`}
                   onClick={() => {
                     if (window.confirm(`删除「${conversation.title}」？`)) {
@@ -50,29 +54,24 @@ export function ConversationList({
                     }
                   }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 7h14M9 7V5h6v2M8 7l1 13h6l1-13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-                  </svg>
+                  ×
                 </button>
               </div>
             ))}
           </section>
         ))}
       </div>
-      <footer className="chat-foot">
-        {onOpenActivity ? (
-          <button type="button" onClick={onOpenActivity}>
-            活动记录
-          </button>
-        ) : null}
-        {onLogout ? (
-          <button type="button" onClick={onLogout}>
-            退出
-          </button>
-        ) : null}
-      </footer>
     </aside>
   );
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function groupConversations(conversations: Conversation[]) {

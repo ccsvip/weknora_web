@@ -1,22 +1,24 @@
 <!--
 Sync Impact Report
-- Version: unfilled template → 1.0.0
-- Bump rationale: 首次批准。此前文件只有未替换的模板占位符，没有已生效版本。
+- Version: 1.0.0 → 1.1.0
+- Bump rationale: MINOR。新增第六条，并把集成约束中「前端由实现计划选定」
+  加严为宪章锁定的技术栈。第一条到第五条的含义不变，未删除或重定义原则。
 - Modified principles:
-  - PRINCIPLE_1_NAME → I. 知识能力只走 WeKnora
-  - PRINCIPLE_2_NAME → II. 调用只经统一客户端
-  - PRINCIPLE_3_NAME → III. 共享密钥不出浏览器（不可协商）
-  - PRINCIPLE_4_NAME → IV. 按能力授权
-  - PRINCIPLE_5_NAME → V. 答案与失败都如实呈现
-- Added sections:
-  - WeKnora Integration Constraints
-  - Delivery Workflow
-- Removed sections: 无。模板中的示例注释已删除。
+  - I–V 标题与规则保持不变
+  - 新增 VI. 前端技术栈锁定
+- Added sections: 无新顶级章节。第六条写入 Core Principles。
+- Removed sections: 无。
+- Modified constraints:
+  - WeKnora Integration Constraints：删除「前端框架与语言由实现计划选定」，
+    改为由第六条锁定。
+  - Delivery Workflow / Governance：合规范围从第一条到第五条改为第一条到第六条。
 - Follow-up TODOs:
   - 产品展示名尚未确定，标题暂用 WeKnora Web。确定名称后做一次 PATCH 修订。
-  - 前端技术栈不在本宪章锁定，由首次实现计划选定。
   - 对接的 WeKnora 精确版本不在本宪章锁定。批准时上游 README 标为 v0.9.0，
-    首次计划必须写明所针对的版本。
+    每份计划仍必须写明所针对的版本。
+  - specs/001-weknora-web-app 的 plan.md、research.md、tasks.md 在本次修订前
+    按 React 19 + Vite 静态页面交付，未纳入 TanStack Start、TanStack Router、
+    Tailwind CSS v4、Vite 7 与 react-markdown。该功能 MUST 对照第六条重新核对。
 -->
 
 # WeKnora Web Constitution
@@ -95,6 +97,29 @@ MUST NOT 用本地编造的文字补上答案。
 **理由**：这个应用的价值是可核对的知识回答。把失败伪装成回答，
 会让用户无法判断内容是否来自知识库。
 
+### VI. 前端技术栈锁定
+
+界面层 MUST 使用下列技术，MUST NOT 以其他框架或语言替换：
+
+- 页面构建、交互管理与类型检查 MUST 使用 React 19 与 TypeScript。
+- 应用框架、页面路由与首次数据加载 MUST 使用 TanStack Start 与
+  TanStack Router。
+- 布局、颜色、间距与不同屏幕尺寸下的显示 MUST 使用 Tailwind CSS v4。
+- 开发时的即时更新与上线打包 MUST 使用 Vite 7。
+- 回答中的 Markdown MUST 使用 react-markdown 与 remark-gfm 渲染为表格、
+  列表、代码块等可读结构。
+- 接收回答时 MUST 使用 Fetch 读取 SSE 流，并按到达顺序把文字逐段写入界面；
+  未结束的流 MUST 标为进行中，MUST NOT 当作完整答案。
+
+聊天界面 MUST 由 React 与 Tailwind CSS 呈现。问答能力 MUST 来自 WeKnora API。
+
+TanStack Start 若包含服务端代码，该代码 MUST 遵守第二条与第三条：
+WeKnora 请求仍只经统一客户端发出，共享密钥 MUST NOT 进入浏览器包。
+页面与组件对回答流的 Fetch MUST 打到本应用的接口，MUST NOT 直连 WeKnora。
+
+**理由**：把界面技术写进宪章，规格和实现不会各自换栈。逐段展示只规定
+传输与渲染方式，不改变「答案只来自 WeKnora」。
+
 ## WeKnora Integration Constraints
 
 - 上游是可配置基址上的 WeKnora HTTP API。本宪章不锁定补丁版本。
@@ -103,7 +128,7 @@ MUST NOT 用本地编造的文字补上答案。
 - 知识路径上的嵌入、向量库和大模型访问由 WeKnora 完成。本应用不配置这些供应商。
 - 交付物是网页。原生客户端、即时通讯频道机器人，以及对 WeKnora 服务端的修改，
   不在范围内，除非后续修订明确纳入。
-- 前端框架与语言由实现计划选定，不由本宪章选定。计划仍 MUST 满足第一条到第五条。
+- 前端技术栈由第六条锁定。实现计划 MUST 使用该栈，并 MUST 满足第一条到第六条。
 
 ## Delivery Workflow
 
@@ -113,7 +138,7 @@ MUST NOT 用本地编造的文字补上答案。
 - 改动对话、入库或租户选择的变更 MUST 附带自动测试，或在合并说明里记录已执行的手工检查。
   检查 MUST 覆盖：无权租户、流失败、检索为空、文档尚未解析完成。
 - 密钥放在服务端环境配置中，MUST NOT 提交进仓库。
-- 评审 MUST 对照第一条到第五条。任一违反 MUST 阻止合并。
+- 评审 MUST 对照第一条到第六条。任一违反 MUST 阻止合并。
 
 ## Governance
 
@@ -128,9 +153,14 @@ MUST NOT 用本地编造的文字补上答案。
 - MINOR：新增原则，或实质性加严已有指导。
 - PATCH：不改变规则含义的措辞、排版或笔误修正。
 
-合规检查：每份规格、计划和任务清单 MUST 说明它如何满足第一条到第五条。
+合规检查：每份规格、计划和任务清单 MUST 说明它如何满足第一条到第六条。
 `/speckit-analyze` 与代码评审以本文件为治理依据。
+
+本次修订后须重新核对：`specs/001-weknora-web-app/` 的 plan.md、research.md
+与 tasks.md。该功能在 1.0.0 下按 React 19 与 Vite 静态页面交付，尚未纳入
+TanStack Start、TanStack Router、Tailwind CSS v4、Vite 7、react-markdown
+与 remark-gfm。未完成重新核对之前，对照第六条的评审 MUST 判定该计划不合规。
 
 运行时开发指导以 `specs/` 下的功能规格为准。首份规格出现之前，本宪章是唯一的治理文档。
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13
+**Version**: 1.1.0 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13

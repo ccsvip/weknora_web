@@ -10,6 +10,7 @@ http {
     listen ${WEB_PORT};
     server_name _;
     root /usr/share/nginx/html;
+    index _shell.html;
     location /api/ {
       # 关闭 /api 缓冲，流式回答才能按到达更新页面。
       proxy_pass http://api:${API_PORT};
@@ -21,7 +22,7 @@ http {
       proxy_read_timeout 3600s;
     }
     location / {
-      try_files $uri $uri/ /index.html;
+      try_files $uri $uri/ /_shell.html;
     }
   }
 }

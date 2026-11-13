@@ -1,4 +1,6 @@
-import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteReact from "@vitejs/plugin-react";
 import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 
@@ -12,22 +14,38 @@ function projectRoot() {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, projectRoot(), "");
-  const webPort = env.WEB_PORT?.trim();
+  const apiPort = env.API_PORT?.trim();
+  const isTest = mode === "test";
 
   return {
-    plugins: [react()],
+    plugins: [
+      ...(isTest
+        ? []
+        : [
+            tanstackStart({
+              spa: {
+                enabled: true,
+              },
+            }),
+          ]),
+      tailwindcss(),
+      viteReact(),
+    ],
     test: {
       environment: "jsdom",
     },
-    server: webPort
-      ? {
-          proxy: {
-            "/api": {
-              target: `http://127.0.0.1:${webPort}`,
-              changeOrigin: true,
+    server:
+      !isTest && apiPort
+        ? {
+            proxy: {
+              "/api": {
+                target: `http://127.0.0.1:${apiPort}`,
+                changeOrigin: true,
+                timeout: 3_600_000,
+                proxyTimeout: 3_600_000,
+              },
             },
-          },
-        }
-      : undefined,
+          }
+        : undefined,
   };
 });

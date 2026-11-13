@@ -5,6 +5,10 @@ Dockerfile*
 *.log*
 .env*
 coverage/
+.output/
+.tanstack/
+.nitro/
+.vinxi/
 __pycache__/
 *.pyc
 .venv/

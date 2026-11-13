@@ -297,7 +297,7 @@
 
 ## Assumptions
 
-- 本规格承接 WeKnora Web Constitution 1.0.0。产品是 WeKnora 的网页客户端，
+- 本规格承接 WeKnora Web Constitution 1.1.0。产品是 WeKnora 的网页客户端，
   不是 WeKnora 本身的改版。
 - 使用对象是单一操作者部署。一台部署使用一份服务端持有的工作区 API Key。
   不在本功能中做账号注册、邀请或按人隔离。对话隔离的边界是“本部署创建的对话”。
@@ -314,8 +314,10 @@
   这两个数字是本规格的默认值。
 - 活动记录只保留到操作者可用的产品存储中，不另设自动过期。
   删除对话后，删除事件继续保留。
-- 视觉品质是验收条件，不是装饰性建议。计划必须选择一个主流网页界面框架，
-  并在计划中写明具体框架。不得交付未加设计的浏览器默认页面。
+- 视觉品质是验收条件，不是装饰性建议。界面技术栈由宪章第六条锁定：
+  React 19、TypeScript、TanStack Start、TanStack Router、Tailwind CSS v4、
+  Vite 7、react-markdown、remark-gfm，以及用 Fetch 读取 SSE。
+  计划不得改用其他界面框架。不得交付未加设计的浏览器默认页面。
 - 服务端语言只能在 Python 和 Go 之间选择。计划必须选定一个并写明，
   不得改用第三种语言。
 - 记录存储必须是本产品自己的数据库。计划选定具体数据库并写明。
@@ -331,7 +333,7 @@
 
 ## Constitution Compliance
 
-本规格对应 Constitution 1.0.0。
+本规格对应 Constitution 1.1.0。
 
 - **原则 I**：回答只来自 WeKnora 知识对话。本产品不实现解析、索引、检索，
   也不直接调用模型或向量库。见 FR-017。
@@ -346,5 +348,10 @@
   本部署不得读取或继续其他调用方的上游会话。见 FR-022。
 - **原则 V**：引用随回答展示；没有引用要明示；失败和中断不得伪装成完成答案。
   见 FR-006、FR-007、FR-008。本功能没有文档上传，因此没有“已可搜索”状态。
+- **原则 VI**：界面使用宪章锁定的 React 19、TypeScript、TanStack Start、
+  TanStack Router、Tailwind CSS v4、Vite 7、react-markdown、remark-gfm，
+  并用 Fetch 读取本产品转发的 SSE。聊天界面由 React 与 Tailwind 呈现，
+  问答能力仍只来自 WeKnora。见 FR-001、FR-005、FR-013、FR-017、FR-023。
 - **交付约束**：计划必须写明 WeKnora 版本，并落实 Assumptions 中的
-  语言、数据库、界面框架、启动方式和部署配置。这些选择必须满足 FR-024 到 FR-027。
+  语言、数据库、界面技术栈、启动方式和部署配置。这些选择必须满足 FR-024 到 FR-027，
+  以及宪章第六条。

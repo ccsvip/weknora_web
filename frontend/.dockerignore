@@ -1,6 +1,10 @@
-node_modules/
-dist/
-build/
-coverage/
-.env*
+node_modules
+dist
+coverage
+.git
 *.log
+.env*
+.tanstack
+.output
+.nitro
+.vinxi

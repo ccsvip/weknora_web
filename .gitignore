@@ -17,6 +17,10 @@ Thumbs.db
 .vscode/
 .idea/
 coverage/
+.output/
+.tanstack/
+.nitro/
+.vinxi/
 .pytest_cache/
 .ruff_cache/
 *.tsbuildinfo

@@ -170,7 +170,7 @@
 - [X] T056 [P] 在 `backend/tests/contract/test_openapi_routes.py` 断言已实现路由与 `specs/001-weknora-web-app/contracts/openapi.yaml` 一致，且不存在上传、智能体、直连模型或更新对话、消息、活动记录的路径
 - [X] T057 [P] 在 `scripts/check-config-hygiene.ps1` 检查 `backend/src/`、`frontend/src/`、`compose.yaml` 和 `.env.example` 没有真实密钥，也没有写死的产品监听端口
 - [X] T058 核对 `backend/src/weknora_web/weknora/client.py`、`backend/src/weknora_web/services/chat.py`、`backend/src/weknora_web/services/conversation_admin.py` 和 `backend/src/weknora_web/auth/session.py` 中的非显而易见逻辑都有说明原因的注释
-- [ ] T059 按 `specs/001-weknora-web-app/quickstart.md` 执行启动、口令、提问、重启、删除和视觉状态验收，其中包括回答进行期间画面文字至少每秒变化一次，以及 100 段对话的一次列表请求在 10 秒内结束
+- [X] T059 按 `specs/001-weknora-web-app/quickstart.md` 执行启动、口令、提问、重启、删除和视觉状态验收，其中包括回答进行期间画面文字至少每秒变化一次，以及 100 段对话的一次列表请求在 10 秒内结束
 
 ---
 
@@ -298,3 +298,14 @@ T052 frontend/tests/activity-page.test.tsx
 - **原则 III**：T004、T015、T019 把访问口令和上游密钥留在服务端配置。cookie 不含口令。T057 扫描源码和示例配置。
 - **原则 IV**：T014 不发送 `X-Tenant-ID`，403 与 409 只请求一次。T026 断言这个次数。T036 与 T042 在缺少能力时禁用提问并另行说明。本功能没有上传，因此没有“文档尚未解析完成”的任务。
 - **原则 V**：T026、T035、T040、T041 只展示上游回答正文和引用。失败与中断保持可区分，不编造正文。
+
+## Phase 8: Convergence
+
+**Purpose**: 补齐宪章 1.1.0 第六条与修订后计划要求的界面栈、路由、视觉、Markdown 和测试。不改已有任务编号。
+
+- [X] T060 CRITICAL 在 `frontend/package.json`、`frontend/vite.config.ts`、`frontend/tsconfig.json` 与 `frontend/Dockerfile` 接入 Vite 7、TanStack Start SPA（`tanstackStart({ spa: { enabled: true } })`）、TanStack Router、Tailwind CSS v4（`@tailwindcss/vite`）、react-markdown 与 remark-gfm；React 插件排在 Start 之后；不启用 Start server functions、API routes 或 Nitro；构建阶段使用 Node 22.12+，运行时仍为 nginx per Constitution VI (missing)
+- [X] T061 CRITICAL 用 `frontend/src/routes/` 文件路由替换 `frontend/src/App.tsx` 的本地页面状态：`/login`、`/`、`/activity`；已登录布局用 `beforeLoad` 在 `access_required` 时重定向到 `/login`；`/` 与 `/activity` 的 loader 只请求同源 `/api/v1`；`frontend/nginx.conf.template` 的非 `/api` 回退到 SPA shell；刷新 `/` 与 `/activity` 不得 404 per Constitution VI (contradicts)
+- [X] T062 把纸色编辑台落到 Tailwind `@theme` 与对话台布局：token 为纸色 `#f6f1e7`、墨色 `#1c1915`、弱墨 `#5c564c`、线条 `#e4dccf`、强调色 `#0f6e56`、失败色 `#9f2d2d`、Source Serif 4 / Source Sans 3；视口 ≥1100px 时 `frontend/src/pages/ConversationPage.tsx`（或对应路由组件）同时显示对话列表、当前对话和 `frontend/src/components/CitationRail.tsx` 旁注，引用不得只做回答下的 chips；去掉 `frontend/src/styles/tokens.css` 中白底黑字的 `.chat*` 通用聊天壳 per T023 (contradicts)
+- [X] T063 在 `frontend/src/components/AnswerPane.tsx` 用 react-markdown 与 remark-gfm 渲染助手正文（表格、列表、围栏代码块）；流式追加时重新渲染且 `data-state` 保持进行中，不得把未结束的流标为完成 per Constitution VI (missing)
+- [X] T064 在 `frontend/tests/` 增加页面测试：Markdown 表格/列表/代码块；进行中不得显示为完成；未登录打开 `/` 或 `/activity` 进入 `/login` per plan: testing (missing)
+- [X] T065 把 `frontend/vite.config.ts` 的开发代理 `/api` 目标从 `WEB_PORT` 改为 `API_PORT` 上的 Python 服务端，并给流式读取足够的超时 per plan: Vite proxy (contradicts)

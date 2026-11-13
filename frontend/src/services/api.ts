@@ -77,6 +77,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
+export async function probeAccess(): Promise<"ok" | "required"> {
+  try {
+    await listKnowledgeBases();
+    return "ok";
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "access_required") {
+      return "required";
+    }
+    return "ok";
+  }
+}
+
 export function createAccessSession(password: string) {
   return request<{ data: Record<string, never> }>("/access-sessions", {
     method: "POST",

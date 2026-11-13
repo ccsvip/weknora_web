@@ -1,6 +1,5 @@
-import { useState } from "react";
-
-import type { Citation } from "../services/api";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const LABELS = {
   waiting: "等待",
@@ -14,44 +13,36 @@ export type AnswerStatus = keyof typeof LABELS;
 interface AnswerPaneProps {
   status: AnswerStatus;
   body: string;
-  citations?: Citation[];
 }
 
-export function AnswerPane({ status, body, citations = [] }: AnswerPaneProps) {
-  const [open, setOpen] = useState<number | null>(null);
+export function AnswerPane({ status, body }: AnswerPaneProps) {
+  const frame =
+    status === "waiting"
+      ? "border-transparent text-muted"
+      : status === "streaming"
+        ? "border-l-[3px] border-accent pl-3"
+        : status === "failed"
+          ? "rounded-2xl bg-[#f8e8e4] p-4 text-danger"
+          : "rounded-2xl border border-line bg-[#fffdf8] p-4";
 
   return (
-    <article className={`chat-assistant state state-${status}`} data-state={status}>
-      <span className="chat-mark" aria-hidden="true">
-        知
-      </span>
-      <div>
-        <p className="visually-hidden">{LABELS[status]}</p>
-        {status === "waiting" && body === "" ? (
-          <span className="chat-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-        ) : null}
-        {body ? <p className={status === "streaming" ? "chat-copy is-streaming" : "chat-copy"}>{body}</p> : null}
-        {status === "failed" ? <p className="chat-fail">这次没有完成</p> : null}
-        {citations.length > 0 ? (
-          <div className="chat-chips">
-            {citations.map((citation, index) => (
-              <button
-                key={`${citation.title}-${index}`}
-                type="button"
-                className={open === index ? "is-open" : ""}
-                onClick={() => setOpen(open === index ? null : index)}
-              >
-                {citation.title}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {open !== null && citations[open] ? <p className="chat-excerpt">{citations[open].excerpt}</p> : null}
-      </div>
+    <article className={frame} data-state={status}>
+      <p className="sr-only">{LABELS[status]}</p>
+      {status === "waiting" && body === "" ? (
+        <span className="inline-flex h-6 items-center gap-1" aria-hidden="true">
+          <i className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+          <i className="h-1.5 w-1.5 animate-pulse rounded-full bg-current delay-150" />
+          <i className="h-1.5 w-1.5 animate-pulse rounded-full bg-current delay-300" />
+        </span>
+      ) : null}
+      {body ? (
+        <div
+          className={`answer-md font-serif text-[1.15rem] leading-relaxed ${status === "streaming" ? "after:ml-0.5 after:inline-block after:h-[1.05em] after:w-1.5 after:animate-pulse after:bg-current after:align-text-bottom after:content-['']" : ""}`}
+        >
+          <Markdown remarkPlugins={[remarkGfm]}>{body}</Markdown>
+        </div>
+      ) : null}
+      {status === "failed" ? <p className="mt-2 text-sm text-danger">这次没有完成</p> : null}
     </article>
   );
 }
