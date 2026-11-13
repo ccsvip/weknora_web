@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AnswerPane, type AnswerStatus } from "../components/AnswerPane";
 import { CitationRail } from "../components/CitationRail";
@@ -17,23 +17,28 @@ import {
   type KnowledgeBase,
 } from "../services/api";
 
+interface ConversationPageProps {
+  onOpenActivity?: () => void;
+  onLogout?: () => void;
+}
+
 export function KnowledgeNotice({ reason }: { reason: string }) {
   if (reason === "no_knowledge_bases") {
-    return <p className="state state-empty">没有可访问的知识库</p>;
+    return <p className="chat-banner">没有可访问的知识库</p>;
   }
   if (reason === "missing_capability") {
-    return <p className="state state-missing">当前密钥缺少所需能力</p>;
+    return <p className="chat-banner">当前密钥缺少所需能力</p>;
   }
   if (reason === "upstream_forbidden") {
-    return <p className="state state-failed">上游拒绝列出知识库</p>;
+    return <p className="chat-banner">上游拒绝列出知识库</p>;
   }
   if (reason === "upstream_unreachable") {
-    return <p className="state state-failed">暂时连不上知识库</p>;
+    return <p className="chat-banner">暂时连不上知识库</p>;
   }
   return null;
 }
 
-export function ConversationPage() {
+export function ConversationPage({ onOpenActivity, onLogout }: ConversationPageProps = {}) {
   const [reason, setReason] = useState("none");
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [knowledgeBaseId, setKnowledgeBaseId] = useState("");
@@ -46,19 +51,28 @@ export function ConversationPage() {
   const [liveCitations, setLiveCitations] = useState<Citation[]>([]);
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [notice, setNotice] = useState("");
+  const [navOpen, setNavOpen] = useState(false);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   async function refreshList() {
     const payload = await listConversations();
-    setConversations(payload.data);
+    setConversations(payload.data ?? []);
   }
 
   useEffect(() => {
-    void listKnowledgeBases().then((payload) => {
-      setReason(payload.reason);
-      setKnowledgeBases(payload.data);
-      setKnowledgeBaseId(payload.data[0]?.id ?? "");
+    void listKnowledgeBases()
+      .then((payload) => {
+        const rows = payload.data ?? [];
+        setReason(payload.reason ?? (rows.length === 0 ? "no_knowledge_bases" : "none"));
+        setKnowledgeBases(rows);
+        setKnowledgeBaseId(rows[0]?.id ?? "");
+      })
+      .catch(() => {
+        setReason("upstream_unreachable");
+      });
+    void refreshList().catch(() => {
+      setNotice("暂时连不上对话列表");
     });
-    void refreshList();
   }, []);
 
   useEffect(() => {
@@ -66,7 +80,7 @@ export function ConversationPage() {
       setDetail(null);
       return;
     }
-    void getConversation(selectedId).then((payload) => setDetail(payload.data));
+    void getConversation(selectedId).then((payload) => setDetail(payload.data ?? null));
   }, [selectedId]);
 
   const askingDisabled =
@@ -82,6 +96,24 @@ export function ConversationPage() {
   const railCitations = phase === "waiting" || phase === "streaming" || phase === "complete" || phase === "failed"
     ? liveCitations
     : lastCitations(detail);
+  const messages = detail?.messages ?? [];
+  const hasTranscript = messages.length > 0 || pendingQuestion !== "" || phase === "waiting" || phase === "streaming" || phase === "failed";
+  const showEmptyCitations = settled && phase !== "waiting" && phase !== "streaming" && railCitations.length === 0 && (messages.some((message) => message.role === "assistant") || phase === "failed" || phase === "complete");
+
+  useEffect(() => {
+    const element = threadRef.current;
+    if (element) {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, [messages.length, pendingQuestion, liveBody, phase]);
+
+  function resetLive() {
+    setPhase("idle");
+    setLiveBody("");
+    setLiveCitations([]);
+    setPendingQuestion("");
+    setNotice("");
+  }
 
   async function submit() {
     const content = draft;
@@ -97,9 +129,14 @@ export function ConversationPage() {
         if (!knowledgeBaseId) {
           setPhase("idle");
           setPendingQuestion("");
+          setDraft(content);
+          setNotice("没有可提问的知识库，问题没有发出");
           return;
         }
         const created = await createConversation(knowledgeBaseId);
+        if (!created.data?.id) {
+          throw new ApiError("upstream_failed", "没有创建出对话");
+        }
         conversationId = created.data.id;
         setSelectedId(conversationId);
       }
@@ -118,7 +155,7 @@ export function ConversationPage() {
         }
       });
       const refreshed = await getConversation(conversationId);
-      setDetail(refreshed.data);
+      setDetail(refreshed.data ?? null);
       setPendingQuestion("");
       setPhase("idle");
       setLiveBody("");
@@ -132,75 +169,120 @@ export function ConversationPage() {
     }
   }
 
+  const knowledgeName = detail?.knowledge_base_name || knowledgeBases.find((item) => item.id === knowledgeBaseId)?.name || "知识库";
+  const thread = (
+    <>
+      <KnowledgeNotice reason={reason} />
+      {detail && detail.continuable === false ? <p className="chat-banner">这段对话不能继续提问</p> : null}
+      {notice ? <p className="chat-banner is-fail">{notice}</p> : null}
+      {messages.map((message) =>
+        message.role === "user" ? (
+          <article className="chat-user" key={message.id}>
+            <div>{message.body}</div>
+          </article>
+        ) : (
+          <AnswerPane
+            key={message.id}
+            status={message.status === "interrupted" ? "failed" : message.status === "streaming" ? "streaming" : "complete"}
+            body={message.body}
+            citations={message.citations}
+          />
+        ),
+      )}
+      {pendingQuestion ? (
+        <article className="chat-user">
+          <div>{pendingQuestion}</div>
+        </article>
+      ) : null}
+      {phase === "waiting" || phase === "streaming" || phase === "failed" ? (
+        <AnswerPane status={phase} body={liveBody} citations={liveCitations} />
+      ) : null}
+      {showEmptyCitations ? <CitationRail citations={[]} settled /> : null}
+    </>
+  );
+
   return (
-    <div className="workspace">
+    <div className={navOpen ? "chat is-nav-open" : "chat"}>
+      {navOpen ? (
+        <button type="button" className="chat-backdrop" aria-label="关闭历史" onClick={() => setNavOpen(false)} />
+      ) : null}
       <ConversationList
         conversations={conversations}
         selectedId={selectedId}
         onSelect={(id) => {
           setSelectedId(id);
-          setPhase("idle");
-          setLiveBody("");
-          setLiveCitations([]);
-          setPendingQuestion("");
-          setNotice("");
+          resetLive();
+          setNavOpen(false);
         }}
         onCreate={() => {
           setSelectedId(null);
           setDetail(null);
-          setPhase("idle");
-          setLiveBody("");
-          setLiveCitations([]);
-          setNotice("");
+          resetLive();
+          setNavOpen(false);
         }}
         onDelete={(id) => {
-          void deleteConversation(id).then(() => {
-            if (selectedId === id) {
-              setSelectedId(null);
-              setDetail(null);
-            }
-            return refreshList();
-          }).catch((caught: unknown) => {
-            setNotice(caught instanceof ApiError ? caught.message : "删除没有完成，对话仍保留");
-          });
+          void deleteConversation(id)
+            .then(() => {
+              if (selectedId === id) {
+                setSelectedId(null);
+                setDetail(null);
+              }
+              return refreshList();
+            })
+            .catch((caught: unknown) => {
+              setNotice(caught instanceof ApiError ? caught.message : "删除没有完成，对话仍保留");
+            });
         }}
+        onOpenActivity={onOpenActivity}
+        onLogout={onLogout}
       />
-      <section className="thread" aria-label="当前对话">
-        <KnowledgeNotice reason={reason} />
-        {detail && detail.continuable === false ? <p className="state state-failed">这段对话不能继续提问</p> : null}
-        {notice ? <p className="error">{notice}</p> : null}
-        {!selectedId && knowledgeBases.length > 0 ? (
-          <label className="field">
-            知识库
-            <select className="kb-select" value={knowledgeBaseId} onChange={(event) => setKnowledgeBaseId(event.target.value)}>
-              {knowledgeBases.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {(detail?.messages ?? []).map((message) =>
-          message.role === "user" ? (
-            <article className="message user" key={message.id}>
-              <div className="bubble">{message.body}</div>
-            </article>
-          ) : (
-            <AnswerPane key={message.id} status={message.status === "interrupted" ? "failed" : message.status === "streaming" ? "streaming" : "complete"} body={message.body} />
-          ),
+      <main className={hasTranscript ? "chat-main" : "chat-main is-empty"}>
+        <button type="button" className="chat-menu" aria-label="打开历史" onClick={() => setNavOpen(true)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+        {hasTranscript ? (
+          <>
+            <div className="chat-scroll" ref={threadRef} role="log" aria-label="当前对话">
+              {thread}
+            </div>
+            <div className="chat-dock">
+              <Composer
+                value={draft}
+                disabled={askingDisabled}
+                onChange={setDraft}
+                onSubmit={() => void submit()}
+                accessory={<span className="chat-kb">{knowledgeName}</span>}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="chat-hero">
+            <h1>有什么可以帮忙的？</h1>
+            {thread}
+            <Composer
+              value={draft}
+              disabled={askingDisabled}
+              onChange={setDraft}
+              onSubmit={() => void submit()}
+              accessory={
+                knowledgeBases.length > 0 ? (
+                  <select className="chat-kb" aria-label="知识库" value={knowledgeBaseId} onChange={(event) => setKnowledgeBaseId(event.target.value)}>
+                    {knowledgeBases.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="chat-kb">{knowledgeName}</span>
+                )
+              }
+            />
+          </div>
         )}
-        {pendingQuestion ? (
-          <article className="message user">
-            <div className="bubble">{pendingQuestion}</div>
-          </article>
-        ) : null}
-        {phase === "waiting" || phase === "streaming" || phase === "failed" ? (
-          <AnswerPane status={phase} body={liveBody} />
-        ) : null}
-        <Composer value={draft} disabled={askingDisabled} onChange={setDraft} onSubmit={() => void submit()} />
-      </section>
-      <CitationRail citations={railCitations} settled={settled && phase !== "waiting" && phase !== "streaming"} />
+      </main>
     </div>
   );
 }

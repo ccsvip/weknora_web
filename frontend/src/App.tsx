@@ -4,7 +4,7 @@ import { LogoutButton } from "./components/LogoutButton";
 import { ActivityPage } from "./pages/ActivityPage";
 import { ConversationPage } from "./pages/ConversationPage";
 import { LoginPage } from "./pages/LoginPage";
-import { ApiError, listKnowledgeBases } from "./services/api";
+import { ApiError, deleteAccessSession, listKnowledgeBases } from "./services/api";
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -29,21 +29,32 @@ export function App() {
     return <LoginPage onSuccess={() => setAuthed(true)} />;
   }
 
+  if (page === "activity") {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1 className="brand">WeKnora 网页对话台</h1>
+          <nav>
+            <button type="button" className="quiet" onClick={() => setPage("chat")}>
+              对话
+            </button>
+            <button type="button" className="quiet" onClick={() => setPage("activity")}>
+              活动记录
+            </button>
+            <LogoutButton onLoggedOut={() => setAuthed(false)} />
+          </nav>
+        </header>
+        <ActivityPage />
+      </div>
+    );
+  }
+
   return (
-    <div className="shell">
-      <header className="topbar">
-        <h1 className="brand">WeKnora 网页对话台</h1>
-        <nav>
-          <button type="button" className="quiet" onClick={() => setPage("chat")}>
-            对话
-          </button>
-          <button type="button" className="quiet" onClick={() => setPage("activity")}>
-            活动记录
-          </button>
-          <LogoutButton onLoggedOut={() => setAuthed(false)} />
-        </nav>
-      </header>
-      {page === "activity" ? <ActivityPage /> : <ConversationPage />}
-    </div>
+    <ConversationPage
+      onOpenActivity={() => setPage("activity")}
+      onLogout={() => {
+        void deleteAccessSession().finally(() => setAuthed(false));
+      }}
+    />
   );
 }

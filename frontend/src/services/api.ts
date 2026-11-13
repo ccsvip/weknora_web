@@ -61,10 +61,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (response.status === 204) {
     return undefined as T;
   }
-  const payload = await response.json().catch(() => ({}));
+  let payload: { error?: { code?: string; message?: string } } | null = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!payload || typeof payload !== "object") {
+    throw new ApiError("upstream_failed", "接口没有返回可用的数据");
+  }
   if (!response.ok) {
     const error = payload.error ?? { code: "upstream_failed", message: "请求没有完成" };
-    throw new ApiError(error.code, error.message);
+    throw new ApiError(error.code ?? "upstream_failed", error.message ?? "请求没有完成");
   }
   return payload as T;
 }
@@ -122,7 +130,7 @@ export async function streamMessage(
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     const error = payload.error ?? { code: "upstream_failed", message: "请求没有完成" };
-    throw new ApiError(error.code, error.message);
+    throw new ApiError(error.code ?? "upstream_failed", error.message ?? "请求没有完成");
   }
   if (!response.body) {
     throw new ApiError("upstream_failed", "没有收到回答");

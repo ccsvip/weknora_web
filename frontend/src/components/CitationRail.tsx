@@ -6,16 +6,18 @@ interface CitationRailProps {
 }
 
 export function CitationRail({ citations, settled }: CitationRailProps) {
+  if (citations.length === 0) {
+    return settled ? <p className="chat-nocite">没有引用</p> : null;
+  }
+
   return (
-    <aside className="rail" aria-label="引用">
-      <h2>引用</h2>
-      {settled && citations.length === 0 ? <p className="state state-nocite">没有引用</p> : null}
+    <div className="chat-cite-list">
       {citations.map((citation, index) => (
         <article className="citation" key={`${citation.title}-${index}`}>
           <h3>{citation.title}</h3>
           <p>{citation.excerpt}</p>
         </article>
       ))}
-    </aside>
+    </div>
   );
 }

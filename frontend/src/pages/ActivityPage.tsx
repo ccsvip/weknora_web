@@ -15,7 +15,7 @@ export function ActivityPage() {
 
   useEffect(() => {
     const query = conversationId.trim();
-    void listActivity(query || undefined).then((payload) => setRows(payload.data));
+    void listActivity(query || undefined).then((payload) => setRows(payload.data ?? []));
   }, [conversationId]);
 
   return (
