@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from weknora_web.api.errors import AppError
@@ -62,14 +62,12 @@ def delete_conversation(db: Session, client: WeKnoraClient, conversation_id: uui
 
 
 def commit_local_delete(db: Session, conversation: Conversation) -> None:
-    messages = db.scalars(select(Message).where(Message.conversation_id == conversation.id)).all()
-    for message in messages:
-        citations = db.scalars(select(Citation).where(Citation.message_id == message.id)).all()
-        for citation in citations:
-            db.delete(citation)
-        db.delete(message)
+    # 没有 ORM relationship 时，flush 顺序不保证。必须先清子表，PostgreSQL 才会允许删对话。
     title = conversation.title
     conversation_id = conversation.id
+    message_ids = select(Message.id).where(Message.conversation_id == conversation_id)
+    db.execute(delete(Citation).where(Citation.message_id.in_(message_ids)))
+    db.execute(delete(Message).where(Message.conversation_id == conversation_id))
     db.delete(conversation)
     db.add(
         ActivityRecord(

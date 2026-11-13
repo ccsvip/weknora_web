@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -25,6 +25,12 @@ def get_engine() -> Engine:
                 connect_args={"check_same_thread": False},
                 poolclass=StaticPool,
             )
+            # SQLite 默认不检查外键。打开后，删除顺序错误会像 PostgreSQL 一样失败。
+            @event.listens_for(_engine, "connect")
+            def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
         else:
             _engine = create_engine(url)
         _session_factory = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)

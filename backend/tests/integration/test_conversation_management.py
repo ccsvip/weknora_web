@@ -2,9 +2,11 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import select
+
 import weknora_web.services.conversation_admin as conversation_admin
 from weknora_web.db import get_session_factory, reset_engine
-from weknora_web.models import Conversation
+from weknora_web.models import Citation, Conversation, Message
 from weknora_web.weknora.client import KnowledgeBaseView
 
 
@@ -81,9 +83,16 @@ def test_delete_success_and_upstream_failure(world) -> None:
     login(client)
     kept = create_conversation(client)
     doomed = create_conversation(client)
+    fake.chat_mode = "with_citations"
     client.post(f"/api/v1/conversations/{doomed['id']}/messages", json={"content": "机密正文不应出现"})
+    doomed_id = uuid.UUID(doomed["id"])
     assert client.delete(f"/api/v1/conversations/{doomed['id']}").status_code == 204
     assert client.get(f"/api/v1/conversations/{doomed['id']}").status_code == 404
+    leftover = get_session_factory()()
+    remaining_message_ids = {row.id for row in leftover.scalars(select(Message)).all()}
+    assert leftover.scalars(select(Message).where(Message.conversation_id == doomed_id)).all() == []
+    assert all(row.message_id in remaining_message_ids for row in leftover.scalars(select(Citation)).all())
+    leftover.close()
     assert client.get(f"/api/v1/conversations/{kept['id']}").status_code == 200
     records = client.get("/api/v1/activity-records", params={"conversation_id": doomed["id"]})
     deleted = [row for row in records.json()["data"] if row["kind"] == "conversation_deleted"]
