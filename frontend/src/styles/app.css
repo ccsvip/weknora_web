@@ -5,7 +5,7 @@
   --color-ink: #0d0d0d;
   --color-muted: #6b6b6b;
   --color-line: #e5e5e5;
-  --color-accent: #10a37f;
+  --color-accent: #212121;
   --color-danger: #b42318;
   --font-sans: "Noto Sans SC", "Microsoft YaHei", Arial, ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Noto Sans SC", "Microsoft YaHei", Arial, ui-sans-serif, system-ui, sans-serif;
@@ -42,7 +42,7 @@ body {
 .answer-md pre {
   overflow: auto;
   padding: 0.75rem 0.9rem;
-  background: #efe7d6;
+  background: #f5f5f5;
   border-radius: 0.75rem;
 }
 

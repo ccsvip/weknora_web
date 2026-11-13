@@ -26,20 +26,27 @@ interface ConversationPageProps {
 }
 
 export function KnowledgeNotice({ reason }: { reason: string }) {
-  if (reason === "no_knowledge_bases") {
-    return <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">没有可访问的知识库</p>;
+  const message =
+    reason === "no_knowledge_bases"
+      ? "没有可访问的知识库"
+      : reason === "missing_capability"
+        ? "当前密钥缺少所需能力"
+        : reason === "upstream_forbidden"
+          ? "上游拒绝列出知识库"
+          : reason === "upstream_unreachable"
+            ? "暂时连不上知识库"
+            : null;
+  if (!message) {
+    return null;
   }
-  if (reason === "missing_capability") {
-    return <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">当前密钥缺少所需能力</p>;
-  }
-  if (reason === "upstream_forbidden") {
-    return <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">上游拒绝列出知识库</p>;
-  }
-  if (reason === "upstream_unreachable") {
-    return <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">暂时连不上知识库</p>;
-  }
-  return null;
+  return (
+    <div className="mt-6 flex max-w-md items-start gap-3 rounded-2xl border border-[#e9e9e7] bg-[#fafaf9] px-4 py-3 text-left" role="status">
+      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#b98a45]" aria-hidden="true" />
+      <p className="m-0 text-sm leading-6 text-muted">{message}</p>
+    </div>
+  );
 }
+
 
 export function ConversationPage({
   initialKnowledge,
@@ -218,8 +225,10 @@ export function ConversationPage({
     knowledgeBases.find((item) => item.id === knowledgeBaseId)?.name ||
     "知识库";
 
+  const hasCitations = railCitations.length > 0;
+
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 desk:grid-cols-[15rem_minmax(0,1fr)_17rem] desk:items-stretch">
+    <div className={`grid min-h-dvh grid-cols-1 desk:grid-cols-[260px_minmax(0,1fr)] ${hasCitations ? "desk:grid-cols-[260px_minmax(0,1fr)_280px]" : ""}`}>
       <ConversationList
         conversations={conversations}
         selectedId={selectedId}
@@ -243,69 +252,58 @@ export function ConversationPage({
         }}
       />
       <section
-        className="flex min-h-[28rem] min-w-0 flex-col bg-white px-4 pb-4 pt-3 desk:min-h-[calc(100vh-3.5rem)] desk:px-8"
+        className="flex min-h-[calc(100dvh-3.5rem)] min-w-0 flex-col bg-white desk:h-dvh desk:min-h-0"
         aria-label="当前对话"
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-muted">对话</h2>
+        <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-[#f0f0f0] px-5 desk:px-8">
+          <div className="min-w-0">
+            <h2 className="m-0 truncate text-sm font-semibold text-ink">知识库对话</h2>
+          </div>
           {knowledgeBases.length > 0 && !detail ? (
             <select
-              className="rounded-full border-0 bg-[#f3f3f3] px-3 py-1 text-sm text-ink"
+              className="max-w-[45%] rounded-lg border border-[#ededed] bg-white px-3 py-2 text-sm text-ink outline-none transition-colors hover:bg-[#f8f8f8] focus:border-[#b8b8b8]"
               aria-label="知识库"
               value={knowledgeBaseId}
               onChange={(event) => setKnowledgeBaseId(event.target.value)}
             >
               {knowledgeBases.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
+                <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
           ) : (
-            <span className="rounded-full bg-[#f3f3f3] px-3 py-1 text-sm">{knowledgeName}</span>
+            <span className="max-w-[45%] truncate rounded-lg bg-[#f5f5f5] px-3 py-2 text-sm text-muted">{knowledgeName}</span>
           )}
-        </div>
-        <div className="min-h-0 flex-1 space-y-7 overflow-auto py-6" ref={threadRef} role="log" aria-live="polite">
+        </header>
+        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 desk:px-0" ref={threadRef} role="log" aria-live="polite">
           {messages.length === 0 && !pendingQuestion && phase === "idle" ? (
-            <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
-              <div className="mb-5 grid h-12 w-12 place-items-center rounded-full bg-[#f4f4f4] text-xl font-semibold">W</div>
-              <h2 className="m-0 text-2xl font-semibold tracking-tight">今天有什么想了解的？</h2>
-              <p className="mt-2 max-w-md text-sm leading-6 text-muted">向你的知识库提问，WeKnora 会结合相关资料为你整理答案。</p>
+            <div className="my-auto flex min-h-[24rem] flex-col items-center justify-center px-4 text-center">
+              <span className="mb-3 text-sm font-medium text-muted">WeKnora · 知识库助手</span>
+              <h2 className="m-0 text-[1.8rem] font-semibold tracking-[-0.035em] text-ink desk:text-[2rem]">有什么想了解的？</h2>
+              <p className="mt-3 max-w-md text-[15px] leading-7 text-muted">从你的知识库中寻找答案，并附上可追溯的资料来源。</p>
+              <KnowledgeNotice reason={reason} />
             </div>
           ) : null}
-          <KnowledgeNotice reason={reason} />
           {detail && detail.continuable === false ? (
-            <p className="rounded-xl bg-[#f3f3f3] px-3 py-2 text-sm">这段对话不能继续提问</p>
+            <p className="mx-auto max-w-3xl rounded-xl bg-[#f5f5f5] px-4 py-3 text-sm text-muted">这段对话不能继续提问</p>
           ) : null}
           {notice ? (
-            <p className="rounded-xl bg-[#f8e8e4] px-3 py-2 text-sm text-danger">{notice}</p>
+            <p className="mx-auto max-w-3xl rounded-xl bg-[#fff3f0] px-4 py-3 text-sm text-danger" role="alert">{notice}</p>
           ) : null}
           {messages.map((message) =>
             message.role === "user" ? (
-              <article
-                className="ml-auto max-w-[82%] rounded-3xl bg-[#f4f4f4] px-5 py-3 leading-7"
-                key={message.id}
-              >
+              <article className="ml-auto max-w-[82%] rounded-[1.5rem] bg-[#f4f4f4] px-5 py-3.5 leading-7 text-ink" key={message.id}>
                 {message.body}
               </article>
             ) : (
               <AnswerPane
                 key={message.id}
-                status={
-                  message.status === "interrupted"
-                    ? "failed"
-                    : message.status === "streaming"
-                      ? "streaming"
-                      : "complete"
-                }
+                status={message.status === "interrupted" ? "failed" : message.status === "streaming" ? "streaming" : "complete"}
                 body={message.body}
               />
             ),
           )}
           {pendingQuestion ? (
-            <article className="ml-auto max-w-[80%] rounded-2xl border border-line bg-paper px-4 py-3">
-              {pendingQuestion}
-            </article>
+            <article className="ml-auto max-w-[82%] rounded-[1.5rem] bg-[#f4f4f4] px-5 py-3.5 leading-7">{pendingQuestion}</article>
           ) : null}
           {phase === "waiting" || phase === "streaming" || phase === "complete" || phase === "failed" ? (
             <AnswerPane status={phase} body={liveBody} />
@@ -316,12 +314,14 @@ export function ConversationPage({
           disabled={askingDisabled}
           onChange={setDraft}
           onSubmit={() => void submit()}
-          accessory={<span className="text-sm text-muted">{knowledgeName}</span>}
+          accessory={<span className="rounded-lg bg-[#f5f5f5] px-2.5 py-1.5 text-xs text-muted">{knowledgeName}</span>}
         />
       </section>
-      <div className="desk:min-h-[calc(100vh-6.5rem)]">
-        <CitationRail citations={railCitations} settled={settled && phase !== "waiting" && phase !== "streaming"} />
-      </div>
+      {hasCitations ? (
+        <div className="hidden h-dvh desk:block">
+          <CitationRail citations={railCitations} settled={settled && phase !== "waiting" && phase !== "streaming"} />
+        </div>
+      ) : null}
     </div>
   );
 }

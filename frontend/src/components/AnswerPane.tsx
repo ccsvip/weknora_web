@@ -37,7 +37,7 @@ export function AnswerPane({ status, body }: AnswerPaneProps) {
       ) : null}
       {body ? (
         <div
-          className={`answer-md font-serif text-[1.15rem] leading-relaxed ${status === "streaming" ? "after:ml-0.5 after:inline-block after:h-[1.05em] after:w-1.5 after:animate-pulse after:bg-current after:align-text-bottom after:content-['']" : ""}`}
+          className={`answer-md text-base leading-7 text-ink ${status === "streaming" ? "after:ml-0.5 after:inline-block after:h-[1.05em] after:w-1.5 after:animate-pulse after:bg-current after:align-text-bottom after:content-['']" : ""}`}
         >
           <Markdown remarkPlugins={[remarkGfm]}>{body}</Markdown>
         </div>
